@@ -16,6 +16,7 @@ const Videos = () => {
   return (
     <ScrollView>
         <List>
+          <Card heading="+ Novo Vídeo"/>
           {data.map(item => (
               <Card key={item.id} heading={item.heading} subheading={item.subheading} description={item.description}/>
           ))}
