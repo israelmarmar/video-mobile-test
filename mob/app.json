@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "panda-video-teste",
+    "slug": "panda-video-teste",
+    "version": "1.0.0",
+    "assetBundlePatterns": [
+      "**/*"
+    ]
+  }
+}
