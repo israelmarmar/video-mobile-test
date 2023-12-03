@@ -10,9 +10,9 @@ import {
 } from "native-base";
 import { TouchableOpacity } from "react-native-gesture-handler";
 
-export const Card = ({ heading, subheading, description }) => {
+export const Card = ({ heading, subheading, description, image, onClick }) => {
   return (
-    <TouchableOpacity>
+    <TouchableOpacity onPress={onClick}>
       <Box alignItems="center">
         <Box
           w="80%"
@@ -32,33 +32,17 @@ export const Card = ({ heading, subheading, description }) => {
             backgroundColor: "gray.50",
           }}
         >
-          <Box>
-            {/*<AspectRatio w="100%" ratio={16 / 9}>
-            <Image
-              source={{
-                uri: "https://www.holidify.com/images/cmsuploads/compressed/Bangalore_citycover_20190613234056.jpg",
-              }}
-              alt="image"
-            />
-          </AspectRatio>*/}
-            <Center
-              bg="violet.500"
-              _dark={{
-                bg: "violet.400",
-              }}
-              _text={{
-                color: "warmGray.50",
-                fontWeight: "700",
-                fontSize: "xs",
-              }}
-              position="absolute"
-              bottom="0"
-              px="3"
-              py="1.5"
-            >
-              PHOTOS
-            </Center>
-          </Box>
+          {image && (
+            <Box>
+                <Image
+                  source={{
+                    uri: image,
+                  }}
+                  size="xl"
+                  resizeMode="cover"
+                />
+            </Box>
+          )}
           <Stack p="4" space={3}>
             <Stack space={2}>
               <Heading size="md" ml="-1">
@@ -84,23 +68,7 @@ export const Card = ({ heading, subheading, description }) => {
             {subheading && description && (
               <Text fontWeight="400">{description}</Text>
             )}
-            <HStack
-              alignItems="center"
-              space={4}
-              justifyContent="space-between"
-            >
-              <HStack alignItems="center">
-                <Text
-                  color="coolGray.600"
-                  _dark={{
-                    color: "warmGray.200",
-                  }}
-                  fontWeight="400"
-                >
-                  {subheading && description && "6 mins ago"}
-                </Text>
-              </HStack>
-            </HStack>
+          
           </Stack>
         </Box>
       </Box>
