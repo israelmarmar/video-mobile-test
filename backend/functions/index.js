@@ -1,82 +1,122 @@
 const functions = require("firebase-functions");
 const axios = require("axios");
-const querystring = require("querystring");
+const path = require("path");
+const os = require("os");
+const fs = require("fs");
+const {v4: uuidv4} = require("uuid");
+const Busboy = require("busboy");
 
-// // Create and deploy your first functions
-// // https://firebase.google.com/docs/functions/get-started
-//
+const parseToBase64 = (string)=>Buffer.from(string).toString("base64");
+
+// eslint-disable-next-line no-unused-vars, require-jsdoc
+function readFile(fileName) {
+  return new Promise((resolve, reject) => {
+    fs.readFile(fileName, (err, data) => {
+      if (err) reject(err);
+      resolve(data);
+    });
+  });
+}
+
+
+// eslint-disable-next-line require-jsdoc
+async function uploadToPanda(file) {
+  const API_KEY = process.env.PANDA_API_KEY;
+  const FOLDER_ID = null;
+  const VIDEO_ID = uuidv4();
+  let FILENAME = file.split("/");
+  FILENAME = FILENAME[FILENAME.length -1];
+
+  const binaryFile = await readFile(file);
+
+  let metadata = `authorization ${parseToBase64(API_KEY)}`;
+  if (FOLDER_ID) {
+    metadata += `, folder_id ${parseToBase64(FOLDER_ID)}`;
+  }
+  metadata += `, filename ${parseToBase64(FILENAME)}`;
+  metadata += `, video_id ${parseToBase64(VIDEO_ID)}`;
+
+  try {
+    const {data: uploadServers} = await axios.get(
+        "https://api-v2.pandavideo.com.br/hosts/uploader",
+        {
+          headers: {
+            Authorization: API_KEY,
+          },
+        },
+    );
+    const allHosts = Object.values(uploadServers.hosts).reduce(
+        (acc, curr) => [...acc, ...curr],
+        [],
+    );
+    const host = allHosts[Math.floor(Math.random() * allHosts.length)];
+    console.log(`Starting upload to ${host}`);
+
+    // The binary file must be in the body of the POST request
+    await axios.post(
+        `https://${host}.pandavideo.com.br/files`,
+        Buffer.from(binaryFile, "binary"),
+        {
+          headers: {
+            "Tus-Resumable": "1.0.0",
+            "Upload-Length": binaryFile.byteLength,
+            "Content-Type": "application/offset+octet-stream",
+            "Upload-Metadata": metadata,
+          },
+        },
+    );
+    console.log("Upload concluido com sucesso");
+  } catch (error) {
+    console.log("UPLOAD ERROR");
+    console.log(error);
+  }
+}
+
+exports.upload = functions.https.onRequest((req, res) => {
+  if (req.method === "POST") {
+    // eslint-disable-next-line max-len
+    const busboy = Busboy({headers: req.headers});
+    const uploads = {};
+
+    busboy.on("file", (fieldname, file, {filename, mimetype, encoding}) => {
+      filename = filename.replaceAll('-','');
+      console.log(
+          // eslint-disable-next-line max-len
+          `File [${JSON.stringify(fieldname)}] filename: ${JSON.stringify(
+              filename,
+          )}, encoding: ${encoding}, mimetype: ${mimetype}`,
+      );
+
+      const filepath = path.join(os.tmpdir(), filename);
+      uploads[fieldname] = {file: filepath};
+      console.log(`Saving '${fieldname}' to ${filepath}`);
+      file.pipe(fs.createWriteStream(filepath));
+    });
+
+    busboy.on("finish", async () => {
+      // eslint-disable-next-line guard-for-in
+      for (const name in uploads) {
+        const upload = uploads[name];
+        const file = upload.file;
+        console.log('file',file);
+        await uploadToPanda(file);
+        res.write(`${file}\n`);
+        // fs.unlinkSync(file);
+      }
+      res.status(201).end();
+    });
+
+    busboy.end(req.rawBody);
+  } else {
+    res.status(405).end();
+  }
+});
+
 exports.helloWorld = functions.https.onRequest(async (request, response) => {
   response.send("hello world!");
 });
 
-// eslint-disable-next-line require-jsdoc
-async function refreshToken() {
-  try {
-     // eslint-disable-next-line max-len
-    const query = querystring.stringify({
-      grant_type: "refresh_token",
-      code: "d1f77f7c-0847-4836-84b7-9ff1a4cbfca6",
-      client_id: process.env.CLIENT_ID,
-      client_secret: process.env.CLIENT_SECRET,
-      refresh_token: process.env.REFRESH_TOKEN
-    });
-
-    const tokens = await axios.post(
-        `https://auth.pandavideo.com.br/oauth2/token?expires_in=2592000`,
-        query,
-        {
-          headers: {
-            "content-type": "application/x-www-form-urlencoded",
-          },
-        },
-    );
-
-    console.log(tokens.data);
-
-    return tokens.data;
-  } catch (error) {
-    console.error("Erro ao autenticar", error.response);
-    return null;
-  }
-}
-
 exports.videos = functions.https.onRequest(async (request, response) => {
-  const url = "https://api-v2.pandavideo.com.br/client";
-  const headers = {
-    "Authorization": process.env.PANDA_API_KEY,
-    "accept": "application/json",
-    "content-type": "application/json",
-  };
-
-  const dat = {
-    name: "server",
-    callback_url: "https://localhost:5001",
-    website_url: "https://localhost:5001",
-    logo: "data:image/png;base64,444",
-  };
-
-  // const clients = await axios.post(url, dat, {headers});
-  // const client = clients.data[0];
-
-  // console.log(clients);
-
-  // eslint-disable-next-line max-len
-  //const { access_token } = await refreshToken();
-
-  //console.log(access_token)
-
-  const fetchImage = async (imageUrl) => {
-    try {
-      const response = await axios.post(imageUrl, { Authorization: `Bearer ${access_token}` });
-
-      // eslint-disable-next-line max-len
-      return ("data:image/png;base64," + Buffer.from(response.data, "binary").toString("base64"));
-    } catch (error) {
-      console.error("Erro ao buscar imagem:", error.message);
-      return null;
-    }
-  };
-
   const options = {
     method: "GET",
     url: "https://api-v2.pandavideo.com.br/videos",
@@ -90,12 +130,6 @@ exports.videos = functions.https.onRequest(async (request, response) => {
 
   const {data} = await axios.request(options);
   const videos = data.videos;
-
-  // eslint-disable-next-line max-len
-  for (let i=0; i<videos.length; i++) {
-    // eslint-disable-next-line max-len
-    //videos[i] = {...videos[i], thumbnail: await fetchImage(videos[i].thumbnail)};
-  }
 
   response.send(videos);
 });

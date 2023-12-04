@@ -39,6 +39,7 @@ export const Card = ({ heading, subheading, description, image, onClick }) => {
                     uri: image,
                   }}
                   size="xl"
+                  alt=""
                   resizeMode="cover"
                 />
             </Box>

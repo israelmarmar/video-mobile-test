@@ -4,16 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { downloadFile } from "../utils/download";
 
 const VideoPlayerScreen = ({ route }) => {
-  const { videoUrl, videoUrlFile } = route.params;
+  const { videoId, videoUrlFile } = route.params;
   const video = useRef(null);
   const [status, setStatus] = useState({});
   const [asset, setAsset] = useState();
 
+  console.log(videoId)
+
   useEffect(()=>{
     (async()=>{
-        const asset = await downloadFile(videoUrlFile);
-        console.log(asset)
-        setAsset(asset);
+        const uri = await downloadFile(videoUrlFile, videoId);
+        //console.log()
+        //const a = await Asset.loadAsync(videoUrl)
+        setAsset(uri);
+       
     })();
   },[])
 
@@ -27,17 +31,7 @@ const VideoPlayerScreen = ({ route }) => {
         isLooping
         onPlaybackStatusUpdate={(status) => setStatus(() => status)}
         style={{height: "100%"}}
-      />: <Spinner color="blue" /> }
-      <View>
-        <Button
-          title={status.isPlaying ? "Pause" : "Play"}
-          onPress={() =>
-            status.isPlaying
-              ? video.current.pauseAsync()
-              : video.current.playAsync()
-          }
-        />
-      </View>
+      /> : <Spinner color="blue" />}
     </View>
   );
 };
